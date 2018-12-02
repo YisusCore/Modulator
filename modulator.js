@@ -878,18 +878,18 @@ var require, requirejs, define, Promise;
 	};
 	
 	modulator.paths = {
-//		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
-//		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
-//		'jQuery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
-//		'Popper' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
-//		'bootstrap' : {
-//			deps : ['jQuery', 'Popper'],
-//			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
-//			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
-//		},
-//		
-//		'jquery' : 'jQuery',
-//		'popper.js' : 'Popper',
+		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
+		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
+		'jQuery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
+		'Popper' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
+		'bootstrap' : {
+			deps : ['jQuery', 'Popper'],
+			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
+			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
+		},
+		
+		'jquery' : 'jQuery',
+		'popper.js' : 'Popper',
 	};
 	
 	modulator.baseLoad = [
