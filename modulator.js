@@ -144,6 +144,7 @@ var require, requirejs, define, Promise;
 	};
 	
 	var modulator;
+	var wUsed, awaiting = window.ModulatorAwaitings = [];
 	
 	var createNodeCSS = function () {
         var node = modulator.config.xhtml ?
@@ -176,13 +177,63 @@ var require, requirejs, define, Promise;
 	
 	var instantDefine;
 	
-	var node = function(){
-		var ModulatorNode = function ModulatorNode (v, type, lnk)
+	var awaiter = function(){
+		var ins = 0;
+		
+		var ModulatorAwaiter = function ModulatorAwaiter (v)
 		{
-//			var that  = this;
+			this.ins = ++ins;
+			var that  = this;
+			
+			if (typeof awaiting[v] === 'undefined')
+			{
+				awaiting[v] = this;
+			}
+			
+			this.promise = new Promise(function(resolve, reject){
+				that.resolve = resolve;
+				that.reject = reject;
+			});
+		};
+		
+		ModulatorAwaiter.prototype = {
+			do      : _do,
+			done    : _do,
+			then    : _then2,
+			catch   : _catch,
+			error   : _catch,
+			finally : _finally,
+			always  : _finally,
+		};
+		
+		return ModulatorAwaiter;
+	}();
+	
+	var node = function(){
+		var ModulatorNode = function ModulatorNode (v, type, lnk, install)
+		{
+			if (typeof install === 'undefined')
+			{
+				install = true;
+			}
+			
+			var that  = this;
+			
+			that.startat = timestamp();
+			that.endat = null;
 			
 			this.promise = new Promise(function(resolve, reject){
 				var node;
+				
+				if (/\.css$/gi.test(v) && type !== 'css')
+				{
+					type = 'css';
+				}
+				
+				if (/\.js$/gi.test(v) && type !== 'js')
+				{
+					type = 'js';
+				}
 				
 				if (type === 'css')
 				{
@@ -195,8 +246,24 @@ var require, requirejs, define, Promise;
 				}
 				
 				node.setAttribute('data-module', lnk);
-				node.load_evt = function(e){resolve(node, e);};
-				node.error_evt = function(){reject();};
+				node.load_evt = function(e){
+					that.endat = timestamp();
+					that.timer = (that.endat - that.startat) / 1000; // seconds
+					
+			//		delete that.startat;
+					delete that.endat;
+
+					resolve(node, e);
+				};
+				node.error_evt = function(){
+					that.endat = timestamp();
+					that.timer = (that.endat - that.startat) / 1000; // seconds
+					
+			//		delete that.startat;
+					delete that.endat;
+
+					reject();
+				};
 				
 				try
 				{
@@ -209,6 +276,11 @@ var require, requirejs, define, Promise;
 					node.addEventListener('error', node.error_evt, false);
 				}catch(e){}
 				
+				if ( ! (/^http(s){0,1}\:\/\//gi.test(v)))
+				{
+					v = modulator.config.base + v;
+				}
+				
 				if (type === 'css')
 				{
 					node.href = v;
@@ -216,6 +288,16 @@ var require, requirejs, define, Promise;
 				else
 				{
 					node.src = v;
+				}
+				
+				if ( ! install)
+				{
+					that.install = function(){
+						that.startat = timestamp();
+						document.getElementsByTagName('body')[0].appendChild(node);
+						that.install = noop;
+					};
+					return;
 				}
 				
 				document.getElementsByTagName('body')[0].appendChild(node);
@@ -230,6 +312,7 @@ var require, requirejs, define, Promise;
 			error   : _catch,
 			finally : _finally,
 			always  : _finally,
+			install : noop
 		};
 		
 		return ModulatorNode;
@@ -246,12 +329,19 @@ var require, requirejs, define, Promise;
 			var that  = this;
 			that.SCRIPT = undefined;
 			that.promise = undefined;
+			that.startat = timestamp();
+			that.endat = null;
 
 			that.lnk = lnk;
 			
 			if (lnk !== null && lnk.trim().length > 0 && typeof scripts[lnk] === 'undefined')
 			{
 				scripts[lnk] = that;
+			}
+			
+			if (lnk !== null && lnk.trim().length > 0 && typeof awaiting[lnk] === 'undefined')
+			{
+				awaiting[lnk] = new awaiter(lnk);
 			}
 			
 			that.mns = lnk;
@@ -263,6 +353,15 @@ var require, requirejs, define, Promise;
 				if (lnk2 !== that.mns)
 				{
 					scripts[lnk2] = scripts[lnk];
+					
+					if (typeof awaiting[lnk2] !== 'undefined')
+					{
+						awaiting[lnk].then(function(v){
+							awaiting[lnk2].resolve(v);
+						});
+					}
+			
+					awaiting[lnk2] = awaiting[lnk];
 				}
 				that.mns = lnk2;
 			}
@@ -273,6 +372,15 @@ var require, requirejs, define, Promise;
 				if (lnk2 !== that.mns)
 				{
 					scripts[lnk2] = scripts[lnk];
+					
+					if (typeof awaiting[lnk2] !== 'undefined')
+					{
+						awaiting[lnk].then(function(v){
+							awaiting[lnk2].resolve(v);
+						});
+					}
+			
+					awaiting[lnk2] = awaiting[lnk];
 				}
 				that.mns = lnk2;
 			}
@@ -291,13 +399,43 @@ var require, requirejs, define, Promise;
 					if (deps.length > 0)
 					{
 						new loader(deps)
-							.then(function(){that.setScript(SCRIPT, fDef);that.resolve(that.lnk);})
+							.then(function(){
+								that.setScript(SCRIPT, fDef);
+							
+								if (typeof awaiting[that.lnk] !== 'undefined')
+								{
+									awaiting[that.lnk].resolve(that.lnk);
+								}
+
+								that.endat = timestamp();
+								that.timer = (that.endat - that.startat) / 1000; // seconds
+
+			//					delete that.startat;
+								delete that.endat;
+
+								that.resolve(that.lnk);
+							})
 							.catch(function(){that.reject();})
 						;
 					}
 					else
 					{
-						setTimeout(function(){that.setScript(SCRIPT, fDef);that.resolve(that.lnk);}, 4);
+						setTimeout(function(){
+							that.setScript(SCRIPT, fDef);
+							
+							if (typeof awaiting[that.lnk] !== 'undefined')
+							{
+								awaiting[that.lnk].resolve(that.lnk);
+							}
+
+							that.endat = timestamp();
+							that.timer = (that.endat - that.startat) / 1000; // seconds
+
+			//				delete that.startat;
+							delete that.endat;
+
+							that.resolve(that.lnk);
+						}, 4);
 					}
 					return;
 				}
@@ -398,6 +536,14 @@ var require, requirejs, define, Promise;
 					clearTimeout(o.tmo);
 					delete o.tmo;
 					
+					awaiting[o.lnk].resolve(o.lnk);
+					
+					o.endat = timestamp();
+					o.timer = (o.endat - o.startat) / 1000; // seconds
+
+			//		delete o.startat;
+					delete o.endat;
+
 					o.resolve(o.lnk);
 				}, 200);
 			}
@@ -446,6 +592,12 @@ var require, requirejs, define, Promise;
 						clearTimeout(this.tmo);
 						delete this.tmo;
 						
+						this.endat = timestamp();
+						this.timer = (this.endat - this.startat) / 1000; // seconds
+
+			//			delete this.startat;
+						delete this.endat;
+
 						this.resolve(this.lnk);
 					}
 					
@@ -479,6 +631,14 @@ var require, requirejs, define, Promise;
 					clearTimeout(that.tmo);
 					delete that.tmo;
 					
+					awaiting[that.lnk].resolve(that.lnk);
+					
+					that.endat = timestamp();
+					that.timer = (this.endat - this.startat) / 1000; // seconds
+
+			//		delete that.startat;
+					delete that.endat;
+
 					that.resolve(that.lnk);
 					
 				}
@@ -521,17 +681,39 @@ var require, requirejs, define, Promise;
 					;
 				});
 				
+				var fn = undefined, 
+					ln = undefined;
+				
 				each(js, function(v){
 					if (typeof nodes[v] === 'undefined')
 					{
-						nodes[v] = new node(v, 'js', that.lnk);
+						nodes[v] = new node(v, 'js', that.lnk, false);
 					}
-					
+
 					nodes[v]
 						.then(function(e){resolver(e, that);})
 						.catch(function(){rejector(that);})
 					;
+					
+					if (typeof ln !== 'undefined')
+					{
+						ln.then(function(){
+							nodes[v].install()
+						})
+					}
+					
+					if (typeof fn === 'undefined')
+					{
+						fn = nodes[v];
+					}
+					
+					ln = nodes[v];
 				});
+				
+				if (typeof fn !== 'undefined')
+				{
+					fn.install();
+				}
 				
 				this.download = noop;
 			},
@@ -614,7 +796,7 @@ var require, requirejs, define, Promise;
 					that.endat = timestamp();
 					that.timer = (that.endat - that.startat) / 1000; // seconds
 					
-					delete that.startat;
+//					delete that.startat;
 					delete that.endat;
 					
 					setTimeout(function(){
@@ -676,36 +858,134 @@ var require, requirejs, define, Promise;
 		
 	};
 	
+	var base = document.getElementsByTagName('base');
+	if (base.length > 0)
+	{
+		base = base[0].href;
+	}
+	else
+	{
+		base = location.href;
+	}
+	
 	modulator.config = {
 		xhtml : false,
 		scriptType : 'text/javascript',
 		styleType : 'text/css',
 		charset : 'utf-8',
 		async : true,
+		base : base
 	};
 	
 	modulator.paths = {
-		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
-		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
-		'jQuery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
-		'Popper' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
-		'bootstrap' : {
-			deps : ['jQuery', 'Popper'],
-			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
-			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
-		},
-		
-		'jquery' : 'jQuery',
-		'popper.js' : 'Popper',
+//		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
+//		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
+//		'jQuery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
+//		'Popper' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
+//		'bootstrap' : {
+//			deps : ['jQuery', 'Popper'],
+//			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
+//			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
+//		},
+//		
+//		'jquery' : 'jQuery',
+//		'popper.js' : 'Popper',
 	};
 	
 	modulator.baseLoad = [
-		'jQuery', 
-		'bootstrap'
+//		'jQuery', 
+//		'bootstrap'
 	];
 	modulator.baseLoaded = noop;
 	
 	extend(modulator, cnf);
+	
+	wUsed = window.WhenUsed = function(){
+		var ModulatorWhenUsed = function ModulatorWhenUsed(deps, callback)
+		{
+			if (isString(deps) && deps.trim().length > 0)
+			{
+				deps = [deps];
+			}
+
+			if ( ! isFunction(callback))
+			{
+				callback = noop;
+			}
+
+			if ( ! isArray(deps))
+			{
+				deps = [];
+			}
+
+			if (deps.length === 0)
+			{
+				throw "Sin dependencias";
+			}
+
+			var that = this;
+
+			that.promise = new Promise(function(resolve){
+				that.startat = timestamp();
+				that.endat = null;
+				that.toload = deps;
+				that.loaded = [];
+
+				that.loader = function(v) {
+					that.loaded.push(v);
+
+					if (that.loaded.length >= that.toload.length)
+					{
+						that.endat = timestamp();
+						that.timer = (that.endat - that.startat) / 1000; // seconds
+
+//						delete that.startat;
+						delete that.endat;
+
+						setTimeout(function(){
+							var loaded = [];
+
+							each(that.toload, function(v){
+								var SCRIPT = isFunction(v) ? v : scripts[v].SCRIPT;
+
+								loaded.push(SCRIPT);
+							});
+
+							loaded.push(that);
+
+							resolve(loaded);
+						}, 4);
+					}
+				};
+			}).then(callback);
+
+			each(deps, function(v){
+				if (typeof awaiting[v] === 'undefined')
+				{
+					awaiting[v] = new awaiter(v);
+				}
+
+				awaiting[v].then(function(){
+					that.loader(v);
+				});
+			});
+		};
+		
+		ModulatorWhenUsed.prototype = {
+			do      : _do,
+			done    : _do,
+			then    : _then2,
+			catch   : _catch,
+			error   : _catch,
+			finally : _finally,
+			always  : _finally
+		};
+		
+		return function WhenUsed(deps, callback)
+		{
+			return new ModulatorWhenUsed(deps, callback);
+		};
+	}();
 	
 	new script('require', modulator);
 	new script('exports', function(mod){
@@ -715,7 +995,7 @@ var require, requirejs, define, Promise;
 		}
 		
 		return function(){
-			console.log(arguments);
+			console.log(arguments, 'aun en desarrollo');
 		};
 	});
 	
