@@ -440,6 +440,11 @@ var require, requirejs, define, Promise;
 					return;
 				}
 				
+				if (typeof modulator.paths[that.lnk.toLowerCase()] !== 'undefined')
+				{
+					that.lnk = that.lnk.toLowerCase();
+				}
+				
 				if (typeof modulator.paths[that.lnk] !== 'undefined')
 				{
 					var pt = modulator.paths[that.lnk];
