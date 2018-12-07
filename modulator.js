@@ -353,17 +353,6 @@ var require, requirejs, define, Promise;
 			that.endat = null;
 
 			that.lnk = lnk;
-			
-			if (lnk !== null && lnk.trim().length > 0 && typeof scripts[lnk] === 'undefined')
-			{
-				scripts[lnk] = that;
-			}
-			
-			if (lnk !== null && lnk.trim().length > 0 && typeof awaiting[lnk] === 'undefined')
-			{
-				awaiting[lnk] = new awaiter(lnk);
-			}
-			
 			that.mns = lnk;
 
 			var lnk2;
@@ -752,7 +741,64 @@ var require, requirejs, define, Promise;
 			always  : _finally,
 		};
 		
-		return ModulatorScript;
+		return function whitScript (v, SCRIPT, DEPS, fDef){
+			if (v === null || v.trim().length === 0)
+			{
+				throw "Script requerido vacío";
+			}
+			
+			/**
+			 * Obtener la verdadera librería y no el alias
+			 */
+			var lnk = v;
+			if (typeof modulator.paths[lnk.toLowerCase()] !== 'undefined')
+			{
+				lnk = lnk.toLowerCase();
+			}
+			
+			if (typeof modulator.paths[lnk] !== 'undefined')
+			{
+				var pt = modulator.paths[lnk];
+				while (isString(pt) && typeof modulator.paths[pt] !== 'undefined')
+				{
+					// es un aliases
+					lnk = pt;
+					pt = modulator.paths[lnk];
+				}
+			}
+			
+			if (typeof scripts[lnk] === 'undefined')
+			{
+				scripts[lnk] = new ModulatorScript(lnk, SCRIPT, DEPS, fDef);
+			}
+						
+			if (typeof awaiting[lnk] === 'undefined')
+			{
+				awaiting[lnk] = new awaiter(lnk);
+			}
+			
+			if (typeof scripts[v] === 'undefined'){scripts[v] = scripts[lnk];}
+			if (typeof awaiting[v] === 'undefined'){awaiting[v] = awaiting[lnk];}
+			
+			var lnk2 = v;
+			if (typeof modulator.paths[lnk2.toLowerCase()] !== 'undefined'){lnk2 = lnk2.toLowerCase();}
+			
+			if (typeof modulator.paths[lnk2] !== 'undefined')
+			{
+				var pt = modulator.paths[lnk2];
+				while (isString(pt) && typeof modulator.paths[pt] !== 'undefined')
+				{
+					// es un aliases
+					lnk2 = pt;
+					pt = modulator.paths[lnk2];
+					
+					if (typeof scripts[lnk2] === 'undefined'){scripts[lnk2] = scripts[lnk];}
+					if (typeof awaiting[lnk2] === 'undefined'){awaiting[lnk2] = awaiting[lnk];}
+				}
+			}
+			
+			return scripts[lnk];
+		};
 	}();
 	
 	var loader = function()
@@ -788,12 +834,7 @@ var require, requirejs, define, Promise;
 						return that.loader(v);
 					}
 					
-					if (typeof scripts[v] === 'undefined')
-					{
-						new script(v);
-					}
-
-					scripts[v]
+					script(v)
 						.then(function(v){that.loader(v);})
 						.catch(function(){that.loader(v);})
 					;
@@ -1006,7 +1047,7 @@ var require, requirejs, define, Promise;
 						setTimeout(function(){
 							var loaded = [];
 
-							each(that.loaded, function(v){
+							each(that.toload, function(v){
 								var SCRIPT = isFunction(v) ? v : scripts[v].SCRIPT;
 
 								loaded.push(SCRIPT);
@@ -1048,28 +1089,47 @@ var require, requirejs, define, Promise;
 		};
 	}();
 	
-	new script('require', modulator);
-	new script('exports', function(mod){
+	/**
+	 * Registrando la función require
+	 */
+	script('require', modulator);
+	
+	/**
+	 * Exports Function
+	 */
+	var exports = window.ModulatorExport = function ModulatorExport()
+	{
+		console.log(arguments, 'aun en desarrollo');
+	};
+	
+	script('exports', function(mod){
 		if (typeof mod.exports === 'undefined')
 		{
 			mod.exports = {};
 		}
 		
-		return function(){
-			console.log(arguments, 'aun en desarrollo');
-		};
+		return exports;
 	});
 	
+	/**
+	 * Si ya existe la función require es mejor que se quede la función nativa
+	 */
 	if ( ! require)
 	{
 		require = modulator;
 	}
 	
+	/**
+	 * Si ya existe la función requirejs es mejor que se quede la función nativa
+	 */
 	if ( ! requirejs)
 	{
 		requirejs = modulator;
 	}
 	
+	/**
+	 * Definiendo la funcion define en caso que no exista la función nativa
+	 */
 	var commentRegExp = /\/\*[\s\S]*?\*\/|([^:"'=]|^)\/\/.*$/mg,
         cjsRequireRegExp = /[^.]\s*require\s*\(\s*["']([^'"\s]+)["']\s*\)/g
 	;
@@ -1118,7 +1178,7 @@ var require, requirejs, define, Promise;
 				name = instantDefine;
 			}
 			
-			new script(name, callback, deps, true)
+			script(name, callback, deps, true)
 			.then(function(v){
 				for(var plg in modulator.paths)
 				{
@@ -1141,5 +1201,8 @@ var require, requirejs, define, Promise;
 		define.amd = {};
 	}
 	
+	/**
+	 * Leyendo las librerías de baseLoad y ejecutando la función baseLoaded
+	 */
 	modulator(modulator.baseLoad, modulator.baseLoaded);
 }());
