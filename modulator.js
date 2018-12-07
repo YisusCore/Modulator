@@ -3,14 +3,9 @@ var require, requirejs, define, Promise;
 ;(function(){
 	'use strict';
 	
-//	var log = console.log;
-	
-	var cnf = {};
-	if (typeof window.Modulator !== 'undefined')
-	{
-		cnf = window.Modulator;
-	}
-	
+	/**
+	 * Helpers
+	 */
 	var op = Object.prototype,
 		os = op.toString;
 	
@@ -89,6 +84,9 @@ var require, requirejs, define, Promise;
 	
 	var noop = function(){};
 	
+	/**
+	 * Promise Default Functions
+	 */
 	var _do = function Do (callback)
 	{
 		this.then(callback);
@@ -143,9 +141,33 @@ var require, requirejs, define, Promise;
 		return this;
 	};
 	
-	var modulator;
-	var wUsed, awaiting = window.ModulatorAwaitings = [];
+	/**
+	 * If variable exists, so this will be asumed as config array
+	 */
+	var cnf = {};
+	if (typeof window.Modulator !== 'undefined' && isObject(window.Modulator))
+	{
+		cnf = window.Modulator;
+	}
 	
+	
+	/**
+	 * Default Variables
+	 */
+	var modulator, // función require, Using, Modulator
+		wUsed // función WhenUsed
+	;
+	
+	var awaiting = window.ModulatorAwaitings = [], // Contiene todos los promise que se ejecutan cuando la librería ha sido iniciada
+		scripts = window.ModulatorScripts = {}, // Contiene todos las librerías junto con su SCRIPT
+		nodes = window.ModulatorNodes = {} // Contiene todos los nodes leídos 
+	;
+	
+	var instantDefine; // Para una definición de SCRIPT de librería inmediata
+	
+	/**
+	 * Node Helpers
+	 */
 	var createNodeCSS = function () {
         var node = modulator.config.xhtml ?
                 document.createElementNS('http://www.w3.org/1999/xhtml', 'html:link') :
@@ -171,12 +193,10 @@ var require, requirejs, define, Promise;
         return node;
     };
 	
-	var scripts = window.ModulatorScripts = {},
-		nodes = window.ModulatorNodes = {}
-	;
 	
-	var instantDefine;
-	
+	/**
+	 * Prototypes
+	 */
 	var awaiter = function(){
 		var ins = 0;
 		
@@ -807,7 +827,7 @@ var require, requirejs, define, Promise;
 					setTimeout(function(){
 						var loaded = [];
 
-						each(that.toload, function(v){
+						each(that.loaded, function(v){
 							var SCRIPT = isFunction(v) ? v : scripts[v].SCRIPT;
 							
 							loaded.push(SCRIPT);
@@ -824,6 +844,17 @@ var require, requirejs, define, Promise;
 		return ModulatorLoader;
 	}();
 	
+	
+	/**
+	 * Función Modulator
+	 * Retorna un loader (promise) de las dependencias
+	 * Si las dependencias son leídas correctamente, ejecuta el callback, caso contrario ejecuta el errback
+	 *
+	 * @param Array|String deps Las dependencias a leer
+	 * @param Function callback Función a ejecutar cuando se lee todas las dependencias de manera correcta
+	 * @param Function errback Función a ejecutar si se produce un error al leer alguna dependncia
+	 * @return ModulatorLoader (promise) instance
+	 */
 	modulator = window.Modulator = window.Using = function Modulator(deps, callback, errback)
 	{
 		if (isFunction(deps))
@@ -859,10 +890,12 @@ var require, requirejs, define, Promise;
 		;
 	};
 	
-	modulator.prototype = {
-		
-	};
+	modulator.prototype = {};
 	
+	
+	/**
+	 * Obteniendo el Base
+	 */
 	var base = document.getElementsByTagName('base');
 	if (base.length > 0)
 	{
@@ -873,6 +906,9 @@ var require, requirejs, define, Promise;
 		base = location.href;
 	}
 	
+	/**
+	 * Definiendo la configuración básica
+	 */
 	modulator.config = {
 		xhtml : false,
 		scriptType : 'text/javascript',
@@ -882,6 +918,10 @@ var require, requirejs, define, Promise;
 		base : base
 	};
 	
+	/**
+	 * Definiendo los paths por defecto
+	 * Este atributo contiene las rutas de las librerías por defecto que cuentan con una ruta definida
+	 */
 	modulator.paths = {
 		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
 		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
@@ -897,14 +937,30 @@ var require, requirejs, define, Promise;
 		'popper.js' : 'Popper',
 	};
 	
+	/**
+	 * Definiendo los baseLoad por defecto
+	 * Este atributo contiene las librerías que se desean leer por defecto apenas cargue el script
+	 */
 	modulator.baseLoad = [
 //		'jQuery', 
 //		'bootstrap'
 	];
+	
+	/**
+	 * Definiendo el baseLoaded por defecto
+	 * Este atributo contiene la función a ejecutar cuando se lean las librerías en baseLoad
+	 */
 	modulator.baseLoaded = noop;
 	
+	/**
+	 * Extendiendo la configuración por defecto
+	 */
 	extend(modulator, cnf);
 	
+	/**
+	 * Función WhenUsed
+	 * Permite ejecutar una función de manera inmediata cuando se lee correctamente una o mas librerías
+	 */
 	wUsed = window.WhenUsed = function(){
 		var ModulatorWhenUsed = function ModulatorWhenUsed(deps, callback)
 		{
@@ -950,7 +1006,7 @@ var require, requirejs, define, Promise;
 						setTimeout(function(){
 							var loaded = [];
 
-							each(that.toload, function(v){
+							each(that.loaded, function(v){
 								var SCRIPT = isFunction(v) ? v : scripts[v].SCRIPT;
 
 								loaded.push(SCRIPT);
