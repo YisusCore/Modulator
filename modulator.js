@@ -771,6 +771,10 @@ var require, requirejs, define, Promise;
 			{
 				scripts[lnk] = new ModulatorScript(lnk, SCRIPT, DEPS, fDef);
 			}
+			else if (typeof SCRIPT !== 'undefined')
+			{
+				scripts[lnk].setScript(SCRIPT, fDef)
+			}
 						
 			if (typeof awaiting[lnk] === 'undefined')
 			{
