@@ -637,7 +637,7 @@ var require, requirejs, define, Promise;
 				
 				if (typeof window[this.mns] === 'undefined')
 				{
-					window[this.mns] = scripts[this.mns].SCRIPT;
+					window[this.mns] = scripts[this.lnk].SCRIPT;
 				}
 				
 				if (typeof that.tmo !== 'undefined')
