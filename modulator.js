@@ -872,7 +872,7 @@ var require, requirejs, define, Promise;
 					setTimeout(function(){
 						var loaded = [];
 
-						each(that.loaded, function(v){
+						each(that.toload, function(v){
 							var SCRIPT = isFunction(v) ? v : scripts[v].SCRIPT;
 							
 							loaded.push(SCRIPT);
