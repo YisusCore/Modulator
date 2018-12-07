@@ -1179,22 +1179,22 @@ var require, requirejs, define, Promise;
 			}
 			
 			script(name, callback, deps, true)
-			.then(function(v){
-				for(var plg in modulator.paths)
-				{
-					var ref = modulator.paths[plg];
-
-					if (isString(plg) && plg === v)
-					{
-						var sc = scripts[ref];
-						if (typeof sc !== 'undefined' && ! sc.SCRIPT)
-						{
-							//buscar algun plugin que hay dependido
-							sc.setScript(scripts[v].SCRIPT, false);
-						}
-					}
-				}
-			})
+//			.then(function(v){
+//				for(var plg in modulator.paths)
+//				{
+//					var ref = modulator.paths[plg];
+//
+//					if (isString(plg) && plg === v)
+//					{
+//						var sc = scripts[ref];
+//						if (typeof sc !== 'undefined' && ! sc.SCRIPT)
+//						{
+//							//buscar algun plugin que hay dependido
+//							sc.setScript(scripts[v].SCRIPT, false);
+//						}
+//					}
+//				}
+//			})
 			;
 		};
 
