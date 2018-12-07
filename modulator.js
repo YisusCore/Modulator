@@ -744,7 +744,7 @@ var require, requirejs, define, Promise;
 		return function whitScript (v, SCRIPT, DEPS, fDef){
 			if (v === null || v.trim().length === 0)
 			{
-				throw "Script requerido vacío";
+				return new ModulatorScript(v, SCRIPT, DEPS, fDef);
 			}
 			
 			/**
