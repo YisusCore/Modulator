@@ -558,7 +558,9 @@ var require, requirejs, define, Promise;
 			//		delete o.startat;
 					delete o.endat;
 
-					o.resolve(o.lnk);
+					setTimeout(function(){
+						o.resolve(o.lnk);
+					}, 200);
 				}, 200);
 			}
 		};
