@@ -82,7 +82,7 @@ var require, requirejs, define, Promise;
 		return (new Date()).getTime();
 	}
 	
-	var noop = function(){};
+	var noop = function NOOP(){};
 	
 	/**
 	 * Promise Default Functions
@@ -158,12 +158,13 @@ var require, requirejs, define, Promise;
 		wUsed // función WhenUsed
 	;
 	
-	var awaiting = window.ModulatorAwaitings = [], // Contiene todos los promise que se ejecutan cuando la librería ha sido iniciada
-		scripts = window.ModulatorScripts = {}, // Contiene todos las librerías junto con su SCRIPT
-		nodes = window.ModulatorNodes = {} // Contiene todos los nodes leídos 
+	var awaiting = [], // Contiene todos los promise que se ejecutan cuando la librería ha sido iniciada
+		scripts  = window.ModulatorScripts = {}, // Contiene todos las librerías junto con su SCRIPT
+		nodes    = window.ModulatorNodes = {} // Contiene todos los nodes leídos 
 	;
 	
 	var instantDefine; // Para una definición de SCRIPT de librería inmediata
+	
 	
 	/**
 	 * Node Helpers
@@ -197,12 +198,9 @@ var require, requirejs, define, Promise;
 	/**
 	 * Prototypes
 	 */
-	var awaiter = function(){
-		var ins = 0;
-		
+	var awaiter = function(){		
 		var ModulatorAwaiter = function ModulatorAwaiter (v)
 		{
-			this.ins = ++ins;
 			var that  = this;
 			
 			if (typeof awaiting[v] === 'undefined')
