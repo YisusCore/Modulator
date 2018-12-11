@@ -290,9 +290,6 @@ var require, requirejs, define, Promise;
 						   instantDefine = lnk;
 						   eval(xmlhttp.responseText);
 						   
-						   if (lnk !== 'jquery' && lnk !== 'popper.js' && lnk !== 'bootstrap')
-						   console.log('evales', lnk, xmlhttp, $.fn.DataTable);
-						
 						   that.load_evt();
 					   }
 					   else
