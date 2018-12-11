@@ -6,8 +6,7 @@ var require, requirejs, define, Promise;
 	/**
 	 * Helpers
 	 */
-	var op = Object.prototype,
-		os = op.toString;
+	var os = Object.prototype.toString;
 	
 	function isArray(e)
 	{
@@ -141,6 +140,7 @@ var require, requirejs, define, Promise;
 		return this;
 	};
 	
+	
 	/**
 	 * If variable exists, so this will be asumed as config array
 	 */
@@ -181,19 +181,6 @@ var require, requirejs, define, Promise;
         return node;
     };
 	
-	var createNodeJS = function () {
-        var node = modulator.config.xhtml ?
-                document.createElementNS('http://www.w3.org/1999/xhtml', 'html:script') :
-                document.createElement('script');
-		
-        node.type = modulator.config.scriptType;
-        node.charset = modulator.config.charset;
-        node.async = modulator.config.async;
-		
-        return node;
-    };
-	
-	
 	/**
 	 * Prototypes
 	 */
@@ -230,97 +217,100 @@ var require, requirejs, define, Promise;
 	}();
 	
 	var node = function(){
-		var ModulatorNode = function ModulatorNode (v, type, lnk, install)
+		var ModulatorNode = function ModulatorNode (v, lnk)
 		{
-			if (typeof install === 'undefined')
-			{
-				install = true;
-			}
-			
 			var that  = this;
 			
 			that.startat = timestamp();
 			that.endat = null;
 			
 			this.promise = new Promise(function(resolve, reject){
-				var node;
-				
-				if (/\.css$/gi.test(v) && type !== 'css')
-				{
-					type = 'css';
-				}
-				
-				if (/\.js$/gi.test(v) && type !== 'js')
-				{
-					type = 'js';
-				}
-				
-				if (type === 'css')
-				{
-					node = createNodeCSS(v);
-				}
-				else
-				{
-					node = createNodeJS(v);
-					instantDefine = lnk;
-				}
-				
-				node.setAttribute('data-module', lnk);
-				node.load_evt = function(e){
-					that.endat = timestamp();
-					that.timer = (that.endat - that.startat) / 1000; // seconds
-					
-			//		delete that.startat;
-					delete that.endat;
-
-					resolve(node, e);
-				};
-				node.error_evt = function(){
-					that.endat = timestamp();
-					that.timer = (that.endat - that.startat) / 1000; // seconds
-					
-			//		delete that.startat;
-					delete that.endat;
-
-					reject();
-				};
-				
-				try
-				{
-					node.attachEvent('onreadystatechange', node.load_evt);
-				}catch(e){}
-				
-				try
-				{
-					node.addEventListener('load', node.load_evt, false);
-					node.addEventListener('error', node.error_evt, false);
-				}catch(e){}
+				var css = /\.css$/gi.test(v);
 				
 				if ( ! (/^http(s){0,1}\:\/\//gi.test(v)))
 				{
 					v = modulator.config.base + v;
 				}
 				
-				if (type === 'css')
-				{
-					node.href = v;
-				}
-				else
-				{
-					node.src = v;
-				}
+				that.load_evt = function(e){
+					that.endat = timestamp();
+					that.timer = (that.endat - that.startat) / 1000; // seconds
+
+					delete that.endat;
+
+					resolve([that, e]);
+				};
 				
-				if ( ! install)
+				that.error_evt = function(){
+					that.endat = timestamp();
+					that.timer = (that.endat - that.startat) / 1000; // seconds
+
+					delete that.endat;
+
+					reject([that]);
+				};
+				
+				if (css)
 				{
-					that.install = function(){
+					var node;
+				
+					node = createNodeCSS(v);
+					node.setAttribute('data-module', lnk);
+					
+					try
+					{
+						node.attachEvent('onreadystatechange', that.load_evt);
+					}catch(e){}
+
+					try
+					{
+						node.addEventListener('load', that.load_evt, false);
+						node.addEventListener('error', that.error_evt, false);
+					}catch(e){}
+					
+					node.href = v;
+					
+					that.install = function AsyncInstall()
+					{
 						that.startat = timestamp();
 						document.getElementsByTagName('body')[0].appendChild(node);
 						that.install = noop;
 					};
+					
 					return;
 				}
 				
-				document.getElementsByTagName('body')[0].appendChild(node);
+				
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (xmlhttp.readyState === XMLHttpRequest.DONE)
+					{   // XMLHttpRequest.DONE == 4
+					   if (xmlhttp.status === 200)
+					   {
+						   instantDefine = lnk;
+						   eval(xmlhttp.responseText);
+						   
+						   if (lnk !== 'jquery' && lnk !== 'popper.js' && lnk !== 'bootstrap')
+						   console.log('evales', lnk, xmlhttp, $.fn.DataTable);
+						
+						   that.load_evt();
+					   }
+					   else
+					   {
+						  that.error_evt();
+					   }
+					}
+				};
+
+				xmlhttp.open("GET", v, true);
+				
+				that.install = function AsyncInstall()
+				{
+					that.startat = timestamp();
+					xmlhttp.send();
+					that.install = noop;
+				};
+				return;
 			});
 		};
 		
@@ -338,15 +328,11 @@ var require, requirejs, define, Promise;
 		return ModulatorNode;
 	}();
 	
-	var script = function(){
-		var ModulatorScript = function ModulatorScript (lnk, SCRIPT, DEPS, fDef)
+	var script = window.ModulatorScript = function(){
+		var ModulatorScript = function ModulatorScript (lnk, DEPS, ascript)
 		{
-			if (typeof fDef === 'undefined')
-			{
-				fDef = false;
-			}
-			
 			var that  = this;
+			
 			that.SCRIPT = undefined;
 			that.promise = undefined;
 			that.startat = timestamp();
@@ -394,60 +380,13 @@ var require, requirejs, define, Promise;
 				that.mns = lnk2;
 			}
 			
-			this.promise = new Promise(function(resolve, reject){
+			that.promise = new Promise(function(resolve, reject){
 				that.resolve = resolve;
 				that.reject = reject;
 				
 				var deps = that.deps = (DEPS || []),
-					js   = that.js = [],
-					css  = that.css = []
+					files  = that.files = []
 				;
-				
-				if (typeof SCRIPT !== 'undefined')
-				{
-					if (deps.length > 0)
-					{
-						new loader(deps)
-							.then(function(){
-								that.setScript(SCRIPT, fDef);
-							
-								if (typeof awaiting[that.lnk] !== 'undefined')
-								{
-									awaiting[that.lnk].resolve(that.lnk);
-								}
-
-								that.endat = timestamp();
-								that.timer = (that.endat - that.startat) / 1000; // seconds
-
-			//					delete that.startat;
-								delete that.endat;
-
-								that.resolve(that.lnk);
-							})
-							.catch(function(){that.reject();})
-						;
-					}
-					else
-					{
-						setTimeout(function(){
-							that.setScript(SCRIPT, fDef);
-							
-							if (typeof awaiting[that.lnk] !== 'undefined')
-							{
-								awaiting[that.lnk].resolve(that.lnk);
-							}
-
-							that.endat = timestamp();
-							that.timer = (that.endat - that.startat) / 1000; // seconds
-
-			//				delete that.startat;
-							delete that.endat;
-
-							that.resolve(that.lnk);
-						}, 4);
-					}
-					return;
-				}
 				
 				if (typeof modulator.paths[that.lnk.toLowerCase()] !== 'undefined')
 				{
@@ -458,23 +397,20 @@ var require, requirejs, define, Promise;
 				{
 					var pt = modulator.paths[that.lnk];
 					
-					while (isString(pt) && typeof modulator.paths[pt] !== 'undefined')
-					{
-						// es un aliases
-						scripts[pt] = that;
-						pt = modulator.paths[pt];
-					}
-					
 					if (isString(pt))
 					{
-						js.push(pt);
+						files.push(pt);
 					}
 					else if (isArray(pt))
 					{
-						js = pt;
+						each(pt, function(l){
+							files.push(l);
+						});
 					}
 					else if (isObject(pt))
 					{
+						pt = JSON.parse(JSON.stringify(pt));
+						
 						if (typeof pt.deps !== 'undefined')
 						{
 							if (isString(pt.deps))
@@ -483,6 +419,7 @@ var require, requirejs, define, Promise;
 							}
 							
 							extend(deps, pt.deps);
+							delete pt.deps;
 						}
 						
 						if (typeof pt.css !== 'undefined')
@@ -491,10 +428,14 @@ var require, requirejs, define, Promise;
 							{
 								pt.css = [pt.css];
 							}
+
+							each(pt.css, function(l){
+								files.push(l);
+							});
 							
-							extend(css, pt.css);
+							delete pt.css;
 						}
-						
+
 						if (typeof pt.js !== 'undefined')
 						{
 							if (isString(pt.js))
@@ -502,14 +443,35 @@ var require, requirejs, define, Promise;
 								pt.js = [pt.js];
 							}
 							
-							extend(js, pt.js);
+							each(pt.js, function(l){
+								files.push(l);
+							});
+							
+							delete pt.js;
 						}
+						
+						if (typeof pt.files !== 'undefined')
+						{
+							if (isString(pt.files))
+							{
+								pt.files = [pt.files];
+							}
+							
+							each(pt.files, function(l){
+								files.push(l);
+							});
+							
+							delete pt.files;
+						}
+						
+						each(pt, function(file){
+							files.push(file);
+						});
 					}
-				
 				}
-				else
+				else if (typeof ascript === 'undefined' || ascript === false)
 				{
-					js.push(that.lnk);
+					files.push(that.lnk);
 				}
 				
 				if (deps.length > 0)
@@ -560,8 +522,8 @@ var require, requirejs, define, Promise;
 
 					setTimeout(function(){
 						o.resolve(o.lnk);
-					}, 200);
-				}, 200);
+					}, 10);
+				}, 100);
 			}
 		};
 		
@@ -670,21 +632,35 @@ var require, requirejs, define, Promise;
 			download : function()
 			{
 				//all dependencies was downloaded
-				
 				var that = this;
+				
 				that.toProcess = 0;
 				that.processed = 0;
 				
-				var css = this.css;
-				that.toProcess += css.length;
-				
-				var js = this.js;
-				that.toProcess += js.length;
+				var files = this.files;
+				that.toProcess += files.length;
 
-				each(css, function(v){
+				var fn,
+					ln;
+
+				each(files, function(v){
 					if (typeof nodes[v] === 'undefined')
 					{
-						nodes[v] = new node(v, 'css', that.lnk);
+						nodes[v] = new node(v, that.lnk);
+					}
+					
+					if (ln)
+					{
+						ln.then(function(){
+							nodes[v].install();
+						});
+					}
+					
+					ln = nodes[v];
+					
+					if ( ! fn)
+					{
+						fn = ln;
 					}
 					
 					nodes[v]
@@ -697,41 +673,12 @@ var require, requirejs, define, Promise;
 					;
 				});
 				
-				var fn = undefined, 
-					ln = undefined;
-				
-				each(js, function(v){
-					if (typeof nodes[v] === 'undefined')
-					{
-						nodes[v] = new node(v, 'js', that.lnk, false);
-					}
-
-					nodes[v]
-						.then(function(e){resolver(e, that);})
-						.catch(function(){rejector(that);})
-					;
-					
-					if (typeof ln !== 'undefined')
-					{
-						ln.then(function(){
-							nodes[v].install()
-						})
-					}
-					
-					if (typeof fn === 'undefined')
-					{
-						fn = nodes[v];
-					}
-					
-					ln = nodes[v];
-				});
-				
-				if (typeof fn !== 'undefined')
+				if (fn)
 				{
 					fn.install();
 				}
 				
-				this.download = noop;
+				that.download = noop;
 			},
 			
 			do      : _do,
@@ -743,10 +690,10 @@ var require, requirejs, define, Promise;
 			always  : _finally,
 		};
 		
-		return function whitScript (v, SCRIPT, DEPS, fDef){
+		return function whitScript (v, DEPS, ascript){
 			if (v === null || v.trim().length === 0)
 			{
-				return new ModulatorScript(v, SCRIPT, DEPS, fDef);
+				return new loader(DEPS);
 			}
 			
 			/**
@@ -771,11 +718,12 @@ var require, requirejs, define, Promise;
 			
 			if (typeof scripts[lnk] === 'undefined')
 			{
-				scripts[lnk] = new ModulatorScript(lnk, SCRIPT, DEPS, fDef);
-			}
-			else if (typeof SCRIPT !== 'undefined')
-			{
-				scripts[lnk].setScript(SCRIPT, fDef)
+				if (typeof ascript === 'undefined')
+				{
+					ascript = false;
+				}
+				
+				scripts[lnk] = new ModulatorScript(lnk, DEPS, ascript);
 			}
 						
 			if (typeof awaiting[lnk] === 'undefined')
@@ -807,11 +755,16 @@ var require, requirejs, define, Promise;
 		};
 	}();
 	
+	var ascript = function withAScript (v, DEPS)
+	{
+		return script(v, DEPS, true);
+	}
+	
 	var loader = function()
 	{
 		//Procesador de dependencias
 		
-		var ModulatorLoader = function ModulatorLoader(toload){
+		var ModulatorLoader = function ModulatorLoader(toload, simple){
 			if (isString(toload))
 			{
 				toload = [toload];
@@ -823,6 +776,11 @@ var require, requirejs, define, Promise;
 			that.endat = null;
 			that.toload = toload;
 			that.loaded = [];
+			
+			if (typeof simple !== 'undefined' && simple)
+			{
+				that.then = _then;
+			}
 			
 			that.promise = new Promise(function(resolve, reject){
 				that.resolve = resolve;
@@ -970,18 +928,14 @@ var require, requirejs, define, Promise;
 	 * Este atributo contiene las rutas de las librerías por defecto que cuentan con una ruta definida
 	 */
 	modulator.paths = {
-		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
-		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
-		'jQuery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
-		'Popper' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
+		'jquery'    : 'https://code.jquery.com/jquery-3.3.1.min.js',
+		'jquery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
+		'popper.js' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
 		'bootstrap' : {
-			deps : ['jQuery', 'Popper'],
+			deps : ['jQuery', 'popper.js'],
 			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
 			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
-		},
-		
-		'jquery' : 'jQuery',
-		'popper.js' : 'Popper',
+		}
 	};
 	
 	/**
@@ -1098,7 +1052,7 @@ var require, requirejs, define, Promise;
 	/**
 	 * Registrando la función require
 	 */
-	script('require', modulator);
+	ascript('require').setScript(modulator);
 	
 	/**
 	 * Exports Function
@@ -1108,7 +1062,7 @@ var require, requirejs, define, Promise;
 		console.log(arguments, 'aun en desarrollo');
 	};
 	
-	script('exports', function(mod){
+	ascript('exports').setScript(function(mod){
 		if (typeof mod.exports === 'undefined')
 		{
 			mod.exports = {};
@@ -1184,24 +1138,11 @@ var require, requirejs, define, Promise;
 				name = instantDefine;
 			}
 			
-			script(name, callback, deps, true)
-//			.then(function(v){
-//				for(var plg in modulator.paths)
-//				{
-//					var ref = modulator.paths[plg];
-//
-//					if (isString(plg) && plg === v)
-//					{
-//						var sc = scripts[ref];
-//						if (typeof sc !== 'undefined' && ! sc.SCRIPT)
-//						{
-//							//buscar algun plugin que hay dependido
-//							sc.setScript(scripts[v].SCRIPT, false);
-//						}
-//					}
-//				}
-//			})
-			;
+			new loader(deps, true)
+			.then(function(args){
+				ascript(name)
+				.setScript(callback.apply(null, args), false);
+			});
 		};
 
 		define.amd = {};
