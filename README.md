@@ -128,3 +128,27 @@ define('MyPlugin', ['jquery'], function($){
     });
 })
 ```
+
+## Prototipos
+
+### Loader
+
+Lee dependencias y retorna una promesa
+
+```js
+## Invoca a Loader
+Using('jquery')
+
+## Recorre las dependencias y ejecuta el .do
+.do(function(){
+
+})
+```
+
+### Script
+
+Lee dependencias y los archivos del script y retorna una promesa
+
+Tiene una promesa interna para cuando se ejecuta los define y se cargue el SCRIPT.
+
+Cuando los define se hayan ejecutado, recien resuelve la promesa retornada

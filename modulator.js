@@ -149,23 +149,23 @@ var require, requirejs, define, Promise;
 	{
 		cnf = window.Modulator;
 	}
-	
-	
+
+
 	/**
 	 * Default Variables
 	 */
 	var modulator, // función require, Using, Modulator
 		wUsed // función WhenUsed
 	;
-	
+
 	var awaiting = [], // Contiene todos los promise que se ejecutan cuando la librería ha sido iniciada
 		scripts  = window.ModulatorScripts = {}, // Contiene todos las librerías junto con su SCRIPT
-		nodes    = window.ModulatorNodes = {} // Contiene todos los nodes leídos 
+		nodes    = {} // Contiene todos los nodes leídos 
 	;
-	
+
 	var instantDefine; // Para una definición de SCRIPT de librería inmediata
-	
-	
+
+
 	/**
 	 * Node Helpers
 	 */
@@ -226,53 +226,39 @@ var require, requirejs, define, Promise;
 		
 		return ModulatorAwaiter;
 	}();
-	
+
 	var node = function(){
-		var ModulatorNode = function ModulatorNode (v, type, lnk, install)
+		var ModulatorNode = function ModulatorNode (link, lnk)
 		{
-			if (typeof install === 'undefined')
-			{
-				install = true;
-			}
-			
 			var that  = this;
 			
 			that.startat = timestamp();
 			that.endat = null;
+			that.lnk = lnk;
 			
-			this.promise = new Promise(function(resolve, reject){
-				var node;
-				
-				if (/\.css$/gi.test(v) && type !== 'css')
+			that.promise = new Promise(function(resolve, reject){
+				if ( ! (/^http(s){0,1}\:\/\//gi.test(link)))
 				{
-					type = 'css';
+					link = modulator.config.base + link;
 				}
 				
-				if (/\.js$/gi.test(v) && type !== 'js')
-				{
-					type = 'js';
-				}
+				var css = /\.css$/gi.test(link);
 				
-				if (type === 'css')
-				{
-					node = createNodeCSS(v);
-				}
-				else
-				{
-					node = createNodeJS(v);
-					instantDefine = lnk;
-				}
-				
+				var node = that.node = css ? createNodeCSS(link) : createNodeJS(link);
 				node.setAttribute('data-module', lnk);
+				
 				node.load_evt = function(e){
+					instantDefine = lnk;
+					
 					that.endat = timestamp();
 					that.timer = (that.endat - that.startat) / 1000; // seconds
 					
 			//		delete that.startat;
 					delete that.endat;
 
-					resolve(node, e);
+					resolve([node, e, lnk]);
 				};
+				
 				node.error_evt = function(){
 					that.endat = timestamp();
 					that.timer = (that.endat - that.startat) / 1000; // seconds
@@ -294,31 +280,16 @@ var require, requirejs, define, Promise;
 					node.addEventListener('error', node.error_evt, false);
 				}catch(e){}
 				
-				if ( ! (/^http(s){0,1}\:\/\//gi.test(v)))
-				{
-					v = modulator.config.base + v;
-				}
+				node[css ? 'href' : 'src'] = link;
 				
-				if (type === 'css')
+				that.install = function AsyncInstall ()
 				{
-					node.href = v;
-				}
-				else
-				{
-					node.src = v;
-				}
-				
-				if ( ! install)
-				{
-					that.install = function(){
-						that.startat = timestamp();
-						document.getElementsByTagName('body')[0].appendChild(node);
-						that.install = noop;
-					};
-					return;
-				}
-				
-				document.getElementsByTagName('body')[0].appendChild(node);
+					instantDefine = lnk;
+
+					that.startat = timestamp();
+					document.getElementsByTagName('body')[0].appendChild(node);
+					that.install = noop;
+				};
 			});
 		};
 		
@@ -330,21 +301,20 @@ var require, requirejs, define, Promise;
 			error   : _catch,
 			finally : _finally,
 			always  : _finally,
+			
 			install : noop
 		};
 		
 		return ModulatorNode;
 	}();
-	
-	var script = function(){
-		var ModulatorScript = function ModulatorScript (lnk, SCRIPT, DEPS, fDef)
+
+	var script = window.ModulatorScript = function(){
+		var ls;
+		
+		var ModulatorScript = function ModulatorScript (lnk, DEPS, ascript)
 		{
-			if (typeof fDef === 'undefined')
-			{
-				fDef = false;
-			}
-			
 			var that  = this;
+			
 			that.SCRIPT = undefined;
 			that.promise = undefined;
 			that.startat = timestamp();
@@ -392,60 +362,13 @@ var require, requirejs, define, Promise;
 				that.mns = lnk2;
 			}
 			
-			this.promise = new Promise(function(resolve, reject){
+			that.promise = new Promise(function(resolve, reject){
 				that.resolve = resolve;
 				that.reject = reject;
 				
 				var deps = that.deps = (DEPS || []),
-					js   = that.js = [],
-					css  = that.css = []
+					files= []
 				;
-				
-				if (typeof SCRIPT !== 'undefined')
-				{
-					if (deps.length > 0)
-					{
-						new loader(deps)
-							.then(function(){
-								that.setScript(SCRIPT, fDef);
-							
-								if (typeof awaiting[that.lnk] !== 'undefined')
-								{
-									awaiting[that.lnk].resolve(that.lnk);
-								}
-
-								that.endat = timestamp();
-								that.timer = (that.endat - that.startat) / 1000; // seconds
-
-			//					delete that.startat;
-								delete that.endat;
-
-								that.resolve(that.lnk);
-							})
-							.catch(function(){that.reject();})
-						;
-					}
-					else
-					{
-						setTimeout(function(){
-							that.setScript(SCRIPT, fDef);
-							
-							if (typeof awaiting[that.lnk] !== 'undefined')
-							{
-								awaiting[that.lnk].resolve(that.lnk);
-							}
-
-							that.endat = timestamp();
-							that.timer = (that.endat - that.startat) / 1000; // seconds
-
-			//				delete that.startat;
-							delete that.endat;
-
-							that.resolve(that.lnk);
-						}, 4);
-					}
-					return;
-				}
 				
 				if (typeof modulator.paths[that.lnk.toLowerCase()] !== 'undefined')
 				{
@@ -456,23 +379,20 @@ var require, requirejs, define, Promise;
 				{
 					var pt = modulator.paths[that.lnk];
 					
-					while (isString(pt) && typeof modulator.paths[pt] !== 'undefined')
-					{
-						// es un aliases
-						scripts[pt] = that;
-						pt = modulator.paths[pt];
-					}
-					
 					if (isString(pt))
 					{
-						js.push(pt);
+						files.push(pt);
 					}
 					else if (isArray(pt))
 					{
-						js = pt;
+						each(pt, function(l){
+							files.push(l);
+						});
 					}
 					else if (isObject(pt))
 					{
+						pt = JSON.parse(JSON.stringify(pt));
+						
 						if (typeof pt.deps !== 'undefined')
 						{
 							if (isString(pt.deps))
@@ -481,6 +401,7 @@ var require, requirejs, define, Promise;
 							}
 							
 							extend(deps, pt.deps);
+							delete pt.deps;
 						}
 						
 						if (typeof pt.css !== 'undefined')
@@ -489,10 +410,14 @@ var require, requirejs, define, Promise;
 							{
 								pt.css = [pt.css];
 							}
+
+							each(pt.css, function(l){
+								files.push(l);
+							});
 							
-							extend(css, pt.css);
+							delete pt.css;
 						}
-						
+
 						if (typeof pt.js !== 'undefined')
 						{
 							if (isString(pt.js))
@@ -500,15 +425,38 @@ var require, requirejs, define, Promise;
 								pt.js = [pt.js];
 							}
 							
-							extend(js, pt.js);
+							each(pt.js, function(l){
+								files.push(l);
+							});
+							
+							delete pt.js;
 						}
+						
+						if (typeof pt.files !== 'undefined')
+						{
+							if (isString(pt.files))
+							{
+								pt.files = [pt.files];
+							}
+							
+							each(pt.files, function(l){
+								files.push(l);
+							});
+							
+							delete pt.files;
+						}
+						
+						each(pt, function(file){
+							files.push(file);
+						});
 					}
-				
 				}
-				else
+				else if (typeof ascript === 'undefined' || ascript === false)
 				{
-					js.push(that.lnk);
+					files.push(that.lnk);
 				}
+				
+				that.files = files;
 				
 				if (deps.length > 0)
 				{
@@ -542,24 +490,11 @@ var require, requirejs, define, Promise;
 			delete node.load_evt;
 			delete node.error_evt;
 			
-			if (o.processed > 0 && o.processed === o.toProcess)
+			if (o.processed > 0 && o.processed >= o.toProcess)
 			{
 				o.tmo = setTimeout(function(){
-					clearTimeout(o.tmo);
-					delete o.tmo;
-					
-					awaiting[o.lnk].resolve(o.lnk);
-					
-					o.endat = timestamp();
-					o.timer = (o.endat - o.startat) / 1000; // seconds
-
-			//		delete o.startat;
-					delete o.endat;
-
-					setTimeout(function(){
-						o.resolve(o.lnk);
-					}, 200);
-				}, 200);
+					o.tot();
+				}, 4);
 			}
 		};
 		
@@ -573,7 +508,7 @@ var require, requirejs, define, Promise;
 			{
 				if (typeof tryF === 'undefined')
 				{
-					tryF = true;
+					tryF = false;
 				}
 				
 				try
@@ -590,32 +525,21 @@ var require, requirejs, define, Promise;
 						loaded.push(SCRIPT);
 					});
 					
-					loaded.push(this);
+//					loaded.push(this);
 					
 					var SCRIPT2 = SCRIPT.apply(null, loaded);
 					SCRIPT = SCRIPT2;
 				}
 				catch(e){}
 
-				this.SCRIPT = SCRIPT;
+				if ( ! this.SCRIPT)
+				{
+					this.SCRIPT = SCRIPT;
+				}
 				
 				if (this.lnk === null || this.lnk.trim().length === 0)
 				{
-					if (typeof this.tmo !== 'undefined')
-					{
-						clearTimeout(this.tmo);
-						delete this.tmo;
-						
-						this.endat = timestamp();
-						this.timer = (this.endat - this.startat) / 1000; // seconds
-
-			//			delete this.startat;
-						delete this.endat;
-
-						this.resolve(this.lnk);
-					}
-					
-					return;
+					return this;
 				}
 				
 				if (typeof scripts[this.lnk] === 'undefined')
@@ -640,52 +564,82 @@ var require, requirejs, define, Promise;
 					window[this.mns] = scripts[this.lnk].SCRIPT;
 				}
 				
-				if (typeof that.tmo !== 'undefined')
+				return this;
+			},
+			
+			tot : function ()
+			{
+				var that = this;
+
+				if (that.processed > 0 && that.processed >= that.toProcess)
 				{
-					clearTimeout(that.tmo);
-					delete that.tmo;
+					if (typeof that.tmo !== 'undefined')
+					{
+						clearTimeout(that.tmo);
+						delete that.tmo;
+					}
 					
 					awaiting[that.lnk].resolve(that.lnk);
 					
 					that.endat = timestamp();
 					that.timer = (this.endat - this.startat) / 1000; // seconds
 
-			//		delete that.startat;
 					delete that.endat;
 
 					that.resolve(that.lnk);
-					
+					that.tot = noop;
 				}
-				
-				if (instantDefine === this.lnk)
-				{
-					instantDefine = undefined;
-				}
-				
-				return this;
 			},
 			
 			download : function()
 			{
 				//all dependencies was downloaded
-				
 				var that = this;
 				that.toProcess = 0;
 				that.processed = 0;
 				
-				var css = this.css;
-				that.toProcess += css.length;
+				var files = this.files;
+				that.toProcess += files.length;
 				
-				var js = this.js;
-				that.toProcess += js.length;
+				if (files.length === 0)
+				{
+					awaiting[that.lnk].resolve(that.lnk);
+					
+					that.endat = timestamp();
+					that.timer = (that.endat - that.startat) / 1000; // seconds
 
-				each(css, function(v){
-					if (typeof nodes[v] === 'undefined')
+					delete that.endat;
+
+					setTimeout(function(){
+						that.resolve(that.lnk);
+					}, 4);
+					return;
+				}
+				
+				var fn, 
+					ln;
+				
+				each(files, function(link){
+					if (typeof nodes[link] === 'undefined')
 					{
-						nodes[v] = new node(v, 'css', that.lnk);
+						nodes[link] = new node(link, that.lnk);
 					}
 					
-					nodes[v]
+					if (ln)
+					{
+						ln.then(function(){
+							nodes[link].install();
+						});
+					}
+					
+					ln = nodes[link];
+					
+					if ( ! fn)
+					{
+						fn = ln;
+					}
+					
+					nodes[link]
 						.then(function(e){
 							resolver(e, that);
 						})
@@ -695,41 +649,20 @@ var require, requirejs, define, Promise;
 					;
 				});
 				
-				var fn = undefined, 
-					ln = undefined;
-				
-				each(js, function(v){
-					if (typeof nodes[v] === 'undefined')
-					{
-						nodes[v] = new node(v, 'js', that.lnk, false);
-					}
-
-					nodes[v]
-						.then(function(e){resolver(e, that);})
-						.catch(function(){rejector(that);})
-					;
-					
-					if (typeof ln !== 'undefined')
-					{
-						ln.then(function(){
-							nodes[v].install()
-						})
-					}
-					
-					if (typeof fn === 'undefined')
-					{
-						fn = nodes[v];
-					}
-					
-					ln = nodes[v];
-				});
-				
 				if (typeof fn !== 'undefined')
 				{
-					fn.install();
+					if (ls)
+					{
+						ls.finally(fn.install);
+					}
+					else
+					{
+						fn.install();
+					}
 				}
 				
 				this.download = noop;
+				ls = that;
 			},
 			
 			do      : _do,
@@ -741,10 +674,10 @@ var require, requirejs, define, Promise;
 			always  : _finally,
 		};
 		
-		return function whitScript (v, SCRIPT, DEPS, fDef){
+		return function whitScript (v, DEPS, ascript){
 			if (v === null || v.trim().length === 0)
 			{
-				return new ModulatorScript(v, SCRIPT, DEPS, fDef);
+				return new loader(DEPS);
 			}
 			
 			/**
@@ -769,13 +702,9 @@ var require, requirejs, define, Promise;
 			
 			if (typeof scripts[lnk] === 'undefined')
 			{
-				scripts[lnk] = new ModulatorScript(lnk, SCRIPT, DEPS, fDef);
+				scripts[lnk] = new ModulatorScript(lnk, DEPS, ascript);
 			}
-			else if (typeof SCRIPT !== 'undefined')
-			{
-				scripts[lnk].setScript(SCRIPT, fDef)
-			}
-						
+
 			if (typeof awaiting[lnk] === 'undefined')
 			{
 				awaiting[lnk] = new awaiter(lnk);
@@ -789,7 +718,7 @@ var require, requirejs, define, Promise;
 			
 			if (typeof modulator.paths[lnk2] !== 'undefined')
 			{
-				var pt = modulator.paths[lnk2];
+				pt = modulator.paths[lnk2];
 				while (isString(pt) && typeof modulator.paths[pt] !== 'undefined')
 				{
 					// es un aliases
@@ -805,11 +734,21 @@ var require, requirejs, define, Promise;
 		};
 	}();
 	
+	var ascript = window.ModulatorAScript = function withAScript (v, DEPS)
+	{
+		return script(v, DEPS, true);
+	};
+	
 	var loader = function()
 	{
 		//Procesador de dependencias
 		
-		var ModulatorLoader = function ModulatorLoader(toload){
+		var ModulatorLoader = function ModulatorLoader(toload, simple){
+			if (typeof toload === 'undefined')
+			{
+				toload = [];
+			}
+			
 			if (isString(toload))
 			{
 				toload = [toload];
@@ -822,10 +761,15 @@ var require, requirejs, define, Promise;
 			that.toload = toload;
 			that.loaded = [];
 			
+			if (typeof simple !== 'undefined' && simple)
+			{
+				that.then = _then;
+			}
+			
 			that.promise = new Promise(function(resolve, reject){
 				that.resolve = resolve;
 				that.reject = reject;
-				
+
 				if (toload.length === 0)
 				{
 					resolve();
@@ -837,7 +781,7 @@ var require, requirejs, define, Promise;
 					{
 						return that.loader(v);
 					}
-					
+
 					script(v)
 						.then(function(v){that.loader(v);})
 						.catch(function(){that.loader(v);})
@@ -858,6 +802,7 @@ var require, requirejs, define, Promise;
 			always  : _finally,
 			
 			loader   : function(v){
+				
 				this.loaded.push(v);
 				
 				if (this.loaded.length >= this.toload.length)
@@ -968,18 +913,14 @@ var require, requirejs, define, Promise;
 	 * Este atributo contiene las rutas de las librerías por defecto que cuentan con una ruta definida
 	 */
 	modulator.paths = {
-		'jQuery' : 'https://code.jquery.com/jquery-3.3.1.min.js',
-		'jQuery.slim' : 'https://code.jquery.com/jquery-3.3.1.slim.min.js',
-		'jQuery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
-		'Popper' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
+		'jquery'    : 'https://code.jquery.com/jquery-3.3.1.min.js',
+		'jquery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
+		'popper.js' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
 		'bootstrap' : {
-			deps : ['jQuery', 'Popper'],
+			deps : ['jQuery', 'popper.js'],
 			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
 			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
-		},
-		
-		'jquery' : 'jQuery',
-		'popper.js' : 'Popper',
+		}
 	};
 	
 	/**
@@ -1001,7 +942,7 @@ var require, requirejs, define, Promise;
 	 * Extendiendo la configuración por defecto
 	 */
 	extend(modulator, cnf);
-	
+
 	/**
 	 * Función WhenUsed
 	 * Permite ejecutar una función de manera inmediata cuando se lee correctamente una o mas librerías
@@ -1093,27 +1034,8 @@ var require, requirejs, define, Promise;
 		};
 	}();
 	
-	/**
-	 * Registrando la función require
-	 */
-	script('require', modulator);
-	
-	/**
-	 * Exports Function
-	 */
-	var exports = window.ModulatorExport = function ModulatorExport()
-	{
-		console.log(arguments, 'aun en desarrollo');
-	};
-	
-	script('exports', function(mod){
-		if (typeof mod.exports === 'undefined')
-		{
-			mod.exports = {};
-		}
-		
-		return exports;
-	});
+	ascript('require');
+	ascript('exports');
 	
 	/**
 	 * Si ya existe la función require es mejor que se quede la función nativa
@@ -1149,7 +1071,7 @@ var require, requirejs, define, Promise;
 				deps = name;
 				name = null;
 			}
-			
+
 			//This module may not have dependencies
 			if (!isArray(deps)) {
 				callback = deps;
@@ -1181,30 +1103,45 @@ var require, requirejs, define, Promise;
 			{
 				name = instantDefine;
 			}
-			
-			script(name, callback, deps, true)
-//			.then(function(v){
-//				for(var plg in modulator.paths)
-//				{
-//					var ref = modulator.paths[plg];
-//
-//					if (isString(plg) && plg === v)
-//					{
-//						var sc = scripts[ref];
-//						if (typeof sc !== 'undefined' && ! sc.SCRIPT)
-//						{
-//							//buscar algun plugin que hay dependido
-//							sc.setScript(scripts[v].SCRIPT, false);
-//						}
-//					}
-//				}
-//			})
-			;
+
+			new loader(deps, true)
+			.then(function(args){
+				var function2 = callback.apply(null, args);
+				
+				if (name === null)
+				{
+					return;
+				}
+
+				ascript(name)
+				.setScript(function2, false)
+				.tot();
+			});
 		};
 
 		define.amd = {};
 	}
 	
+	
+	/**
+	 * Registrando la función require
+	 */
+	define('require', function(){
+		return modulator;
+	});
+
+	/**
+	 * Exports Function
+	 */
+	var exports = window.ModulatorExport = function ModulatorExport()
+	{
+		console.log(arguments, 'aun en desarrollo');
+	};
+
+	define('exports', function(){
+		return exports;
+	});
+
 	/**
 	 * Leyendo las librerías de baseLoad y ejecutando la función baseLoaded
 	 */
