@@ -242,7 +242,7 @@ var require, requirejs, define, Promise;
 					link = modulator.config.base + link;
 				}
 				
-				var css = /\.css$/gi.test(link);
+				var css = /\.css(\?(.*))?$/gi.test(link);
 				
 				var node = that.node = css ? createNodeCSS(link) : createNodeJS(link);
 				node.setAttribute('data-module', lnk);
