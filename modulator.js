@@ -881,6 +881,7 @@ var require, requirejs, define, Promise;
 	};
 	
 	modulator.prototype = {};
+	modulator.paths = {};
 	
 	
 	/**
