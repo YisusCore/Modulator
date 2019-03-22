@@ -308,6 +308,9 @@ var require, requirejs, define, Promise;
 		return ModulatorNode;
 	}();
 
+	var fn, 
+	    ln;
+				
 	var script = window.ModulatorScript = function(){
 		var ls;
 		
@@ -615,9 +618,6 @@ var require, requirejs, define, Promise;
 					}, 4);
 					return;
 				}
-				
-				var fn, 
-					ln;
 				
 				each(files, function(link){
 					if (typeof nodes[link] === 'undefined')
