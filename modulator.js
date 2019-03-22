@@ -908,41 +908,7 @@ var require, requirejs, define, Promise;
 		base : base
 	};
 	
-	/**
-	 * Definiendo los paths por defecto
-	 * Este atributo contiene las rutas de las librerías por defecto que cuentan con una ruta definida
-	 */
-	modulator.paths = {
-		'jquery'    : 'https://code.jquery.com/jquery-3.3.1.min.js',
-		'jquery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
-		'popper.js' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
-		'bootstrap' : {
-			deps : ['jQuery', 'popper.js'],
-			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
-			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
-		}
-	};
 	
-	/**
-	 * Definiendo los baseLoad por defecto
-	 * Este atributo contiene las librerías que se desean leer por defecto apenas cargue el script
-	 */
-	modulator.baseLoad = [
-//		'jQuery', 
-//		'bootstrap'
-	];
-	
-	/**
-	 * Definiendo el baseLoaded por defecto
-	 * Este atributo contiene la función a ejecutar cuando se lean las librerías en baseLoad
-	 */
-	modulator.baseLoaded = noop;
-	
-	/**
-	 * Extendiendo la configuración por defecto
-	 */
-	extend(modulator, cnf);
-
 	/**
 	 * Función WhenUsed
 	 * Permite ejecutar una función de manera inmediata cuando se lee correctamente una o mas librerías
@@ -1122,6 +1088,43 @@ var require, requirejs, define, Promise;
 		define.amd = {};
 	}
 	
+	
+	/**
+	 * Definiendo los paths por defecto
+	 * Este atributo contiene las rutas de las librerías por defecto que cuentan con una ruta definida
+	 */
+	// == // START BASE PATHS
+	modulator.paths = {
+		'jquery'    : 'https://code.jquery.com/jquery-3.3.1.min.js',
+		'jquery.ui' : 'https://code.jquery.com/ui/1.12.1/jquery-ui.min.js',
+		'popper.js' : 'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js',
+		'bootstrap' : {
+			deps : ['jQuery', 'popper.js'],
+			css  : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css',
+			js   : 'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js'
+		}
+	};
+	// == // END BASE PATHS
+	
+	/**
+	 * Definiendo los baseLoad por defecto
+	 * Este atributo contiene las librerías que se desean leer por defecto apenas cargue el script
+	 */
+	modulator.baseLoad = [
+//		'jQuery', 
+//		'bootstrap'
+	];
+	
+	/**
+	 * Definiendo el baseLoaded por defecto
+	 * Este atributo contiene la función a ejecutar cuando se lean las librerías en baseLoad
+	 */
+	modulator.baseLoaded = noop;
+	
+	/**
+	 * Extendiendo la configuración por defecto
+	 */
+	extend(modulator, cnf);
 	
 	/**
 	 * Registrando la función require
