@@ -1149,7 +1149,7 @@ var require, requirejs, define, Promise;
 	/**
 	 * Registrando todos los nodes existentes
 	 */
-	for(var a = document.getElementsByTagName('script'), l = a.length, x = 0; x < l, s = a[x]; x++)
+	for(var a = document.getElementsByTagName('script'), l = a.length, s, x = 0; x < l, s = a[x]; x++)
 	{
 	  if ( ! s.src){continue;}
 	  nodes[s.src] = new Promise(function(resolve, reject){
@@ -1157,7 +1157,7 @@ var require, requirejs, define, Promise;
 	  });
 	}
 	
-	for(var a = document.getElementsByTagName('style'), l = a.length, x = 0; x < l, s = a[x]; x++)
+	for(var a = document.getElementsByTagName('style'), l = a.length, s, x = 0; x < l, s = a[x]; x++)
 	{
 	  if ( ! s.href){continue;}
 	  nodes[s.href] = new Promise(function(resolve, reject){
