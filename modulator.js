@@ -160,7 +160,7 @@ var require, requirejs, define, Promise;
 
 	var awaiting = [], // Contiene todos los promise que se ejecutan cuando la librería ha sido iniciada
 		scripts  = window.ModulatorScripts = {}, // Contiene todos las librerías junto con su SCRIPT
-		nodes    = {} // Contiene todos los nodes leídos 
+		nodes    = window.ModulatorNodes = {} // Contiene todos los nodes leídos 
 	;
 
 	var instantDefine; // Para una definición de SCRIPT de librería inmediata
@@ -1146,6 +1146,25 @@ var require, requirejs, define, Promise;
 		return exports;
 	});
 
+	/**
+	 * Registrando todos los nodes existentes
+	 */
+	for(var a = document.getElementsByTagName('script'), l = a.length, x = 0; x < l, s = a[x]; x++)
+	{
+	  if ( ! s.src){continue;}
+	  nodes[s.src] = new Promise(function(resolve, reject){
+		resolve();
+	  });
+	}
+	
+	for(var a = document.getElementsByTagName('style'), l = a.length, x = 0; x < l, s = a[x]; x++)
+	{
+	  if ( ! s.href){continue;}
+	  nodes[s.href] = new Promise(function(resolve, reject){
+		resolve();
+	  });
+	}
+	
 	/**
 	 * Leyendo las librerías de baseLoad y ejecutando la función baseLoaded
 	 */
