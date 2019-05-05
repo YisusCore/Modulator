@@ -248,7 +248,7 @@ var require, requirejs, define, Promise;
 				node.setAttribute('data-module', lnk);
 				
 				node.load_evt = function(e){
-					instantDefine = lnk;
+// 					instantDefine = lnk;
 					
 					that.endat = timestamp();
 					that.timer = (that.endat - that.startat) / 1000; // seconds
@@ -309,11 +309,10 @@ var require, requirejs, define, Promise;
 	}();
 
 	var fn, 
-	    ln;
+	    ln,
+	    ls;
 				
 	var script = window.ModulatorScript = function(){
-		var ls;
-		
 		var ModulatorScript = function ModulatorScript (lnk, DEPS, ascript)
 		{
 			var that  = this;
@@ -497,7 +496,7 @@ var require, requirejs, define, Promise;
 			{
 				o.tmo = setTimeout(function(){
 					o.tot();
-				}, 4);
+				}, 1000);
 			}
 		};
 		
@@ -651,11 +650,7 @@ var require, requirejs, define, Promise;
 				
 				if (typeof fn !== 'undefined')
 				{
-					if (ls)
-					{
-						ls.finally(fn.install);
-					}
-					else
+					if ( ! ls)
 					{
 						fn.install();
 					}
